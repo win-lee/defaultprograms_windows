@@ -72,7 +72,7 @@ Pro Zuordnung wird der `UserChoice`-Schlüssel neu angelegt, `ProgId` geschriebe
   - UCPD als Admin einmalig deaktivieren (Neustart nötig), oder
   - manuell über Einstellungen → Apps → Standard-Apps.
   - Alle übrigen Endungen/Protokolle (`.docx`, `.mp4`, `.htm`, `ftp`, …) funktionieren normal.
-- **Windows 11 24H2+ (Consumer-Editionen Pro/Home):** Microsoft testet/rollt dort `UserChoiceLatest` mit einem **neuen, maschinengebundenen Hash** aus; sobald pro Benutzer `HashVersion=1` gesetzt ist, wird der klassische `UserChoice`-Hash ignoriert. Nach aktuellem Stand betrifft das Consumer-Editionen; **Education/Enterprise** sind davon laut Hersteller nicht betroffen (VDI-Profil-Roaming). Falls eure Clients betroffen sind: aktuelle SetUserFTA-Version oder die GPO-XML-Lösung verwenden.
+- **Windows 11 24H2/25H2+ (z. B. Build 26200/26100):** Sobald pro Benutzer `HashVersion=1` gesetzt ist (Feature `AppDefaultHashRotation`), liest Explorer **nur noch `UserChoiceLatest`** mit einem neuen, salz- und maschinengebundenen Hash. Das Skript erkennt das automatisch und schreibt **beide** Schluessel (`UserChoice` + `UserChoiceLatest`); eine Kanarienpruefung (`-SelfTest`) vergleicht das Verfahren vor dem Schreiben mit vorhandenen, von Windows geschriebenen `UserChoiceLatest`-Hashes und verweigert das Schreiben bei `mismatch` (z. B. nach einem kuenftigen Windows-Update, das das Schema aendert). Education/Enterprise sind laut Hersteller von dem Feature nicht betroffen.
 - Der Hash ist pro Benutzer (SID) und pro Schlüssel-Zeitstempel gebunden — deshalb bei jedem Login ausführen, nicht nur einmalig.
 - Windows-Updates können das undokumentierte Hash-Verfahren ändern; `-SelfTest` prüft die Implementierung gegen einen festen Vektor.
 
@@ -86,13 +86,13 @@ Der UserChoice-Hash-Code in `Set-UserFTA.ps1` stammt aus **[PS-SFTA](https://git
 
 1. **Zeitstempel:** Der Hash verwendet den LastWriteTime des `UserChoice`-Schlüssels nur **minutengenau** (Sekunden/Nanosekunden werden abgeschnitten). Das Skript rundet den Zeitstempel entsprechend auf die volle Minute — bitte die aktualisierte Version verwenden.
 2. **Falscher Kontext:** Skript nicht als angemeldeten Benutzer ausgeführt (z. B. als SYSTEM oder anderer Admin) — die SID ist im Hash enthalten und stimmt dann nicht.
-3. **Windows 11 24H2+ (Consumer-Editionen):** Feature `AppDefaultHashRotation`/`UserChoiceLatest` aktiv. Prüfen mit:
+3. **Windows 11 24H2/25H2+ (Build 26100/26200):** Feature `AppDefaultHashRotation`/`UserChoiceLatest` aktiv — das Skript schreibt `UserChoiceLatest` automatisch mit (siehe Einschränkungen). Prüfen mit:
    ```powershell
    (Get-CimInstance Win32_OperatingSystem).BuildNumber
    $sid = ([System.DirectoryServices.AccountManagement.UserPrincipal]::Current).SID.Value
    Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SystemProtectedUserData\$sid\AnyoneRead\AppDefaults" -Name HashVersion -ErrorAction SilentlyContinue
    ```
-   Ist `HashVersion = 1` gesetzt, liest Windows nur `UserChoiceLatest` (neuer, maschinengebundener Hash) — das klassische `UserChoice`-Verfahren greift dann nicht.
+   Ist `HashVersion = 1` gesetzt, liest Windows nur `UserChoiceLatest`. Nach dem erneuten Ausfuehren mit der aktuellen Skriptversion sollten unter `FileExts\.html` BEIDE Schluessel (`UserChoice` und `UserChoiceLatest`) mit ProgId/Hash vorhanden sein; `-SelfTest` meldet die Kanarienpruefung (`ok` = Schema erkannt).
 4. Die Protokolle http/https und die Endung .pdf sind zusätzlich durch `UCPD.sys` geschützt (siehe Einschränkungen).
 
 Log prüfen: `%TEMP%\Set-UserFTA.log`. Nach dem Ausführen kontrollieren:

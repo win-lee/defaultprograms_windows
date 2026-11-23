@@ -79,3 +79,25 @@ Pro Zuordnung wird der `UserChoice`-Schlüssel neu angelegt, `ProgId` geschriebe
 ## Lizenz & Credits
 
 Der UserChoice-Hash-Code in `Set-UserFTA.ps1` stammt aus **[PS-SFTA](https://github.com/DanysysTeam/PS-SFTA)** (MIT License, Copyright 2022 Danysys — Danyfirex & Dany3j), das auf der Reverse-Engineering-Arbeit von **Christoph Kolbicz** ([SetUserFTA](https://kolbi.cz/blog/2017/10/25/setuserfta-userchoice-hash-defeated-set-file-type-associations-per-user/), kolbi.cz) und **LMongrain** basiert. Eigener Code: MIT.
+
+## Fehlerbehebung
+
+**Popup „Es gab ein Problem bei den Programmzuordnungen … Standardprogramm wurde wiederhergestellt":** Windows hat den geschriebenen `UserChoice`-Hash verworfen. Häufige Ursachen:
+
+1. **Zeitstempel:** Der Hash verwendet den LastWriteTime des `UserChoice`-Schlüssels nur **minutengenau** (Sekunden/Nanosekunden werden abgeschnitten). Das Skript rundet den Zeitstempel entsprechend auf die volle Minute — bitte die aktualisierte Version verwenden.
+2. **Falscher Kontext:** Skript nicht als angemeldeten Benutzer ausgeführt (z. B. als SYSTEM oder anderer Admin) — die SID ist im Hash enthalten und stimmt dann nicht.
+3. **Windows 11 24H2+ (Consumer-Editionen):** Feature `AppDefaultHashRotation`/`UserChoiceLatest` aktiv. Prüfen mit:
+   ```powershell
+   (Get-CimInstance Win32_OperatingSystem).BuildNumber
+   $sid = ([System.DirectoryServices.AccountManagement.UserPrincipal]::Current).SID.Value
+   Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SystemProtectedUserData\$sid\AnyoneRead\AppDefaults" -Name HashVersion -ErrorAction SilentlyContinue
+   ```
+   Ist `HashVersion = 1` gesetzt, liest Windows nur `UserChoiceLatest` (neuer, maschinengebundener Hash) — das klassische `UserChoice`-Verfahren greift dann nicht.
+4. Die Protokolle http/https und die Endung .pdf sind zusätzlich durch `UCPD.sys` geschützt (siehe Einschränkungen).
+
+Log prüfen: `%TEMP%\Set-UserFTA.log`. Nach dem Ausführen kontrollieren:
+
+```powershell
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.html\UserChoice" /v ProgId
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.html\UserChoice" /v Hash
+```

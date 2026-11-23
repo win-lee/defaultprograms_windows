@@ -116,6 +116,7 @@ function Get-RegistryKeyLastWriteTimeHex {
     finally {
         [void][SetUserFTA.Native.Reg]::RegCloseKey($hk)
     }
+    $ft = $ft - ($ft % 600000000)
     $hi = $ft -shr 32
     $low = $ft -band 0xFFFFFFFF
     return ($hi.ToString('X8') + $low.ToString('X8')).ToLower()

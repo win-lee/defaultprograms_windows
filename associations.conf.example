@@ -1,0 +1,36 @@
+﻿# ============================================================
+# Set-UserFTA - Beispiel-Konfiguration
+#
+# Format:   <Name> = <ProgID>
+#   Name MIT fuehrendem Punkt  -> Dateiendung (FileExts)
+#   Name OHNE Punkt            -> URL-Protokoll (UrlAssociations)
+# '#' oder ';' leitet einen Kommentar ein.
+#
+# Die Datei in "associations.conf" umbenennen und anpassen.
+# ============================================================
+
+# --- Browser (Achtung: http/https werden von Windows/UCPD.sys
+#     geschuetzt - siehe README, Abschnitt "Einschraenkungen") ---
+# http  = MSEdgeHTM
+# https = MSEdgeHTM
+# .htm  = MSEdgeHTM
+# .html = MSEdgeHTM
+# Alternativ Chrome: ChromeHTML / Firefox: FirefoxHTML-308046B0AF4A39CB
+
+# --- PDF (Achtung: .pdf wird von UCPD.sys geschuetzt, siehe README) ---
+# .pdf = MSEdgePDF                  # Microsoft Edge
+# .pdf = AcroExch.Document.DC       # Adobe Acrobat Reader DC
+# .pdf = SumatraPDF                  # SumatraPDF
+
+# --- Microsoft Office ---
+.docx = Word.Document.12
+.xlsx = Excel.Sheet.12
+.pptx = PowerPoint.Show.12
+
+# --- Medien und Sonstiges ---
+# ProgIDs am besten mit 'Set-UserFTA.ps1 -Get' an einem Test-PC ermitteln,
+# nachdem man die Zuordnung dort einmal manuell gesetzt hat.
+# .mp4 = Applications\vlc.exe
+# .mp3 = Applications\vlc.exe
+# .jpg = PhotosApp
+# .png = PhotosApp

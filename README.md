@@ -101,3 +101,20 @@ Log prüfen: `%TEMP%\Set-UserFTA.log`. Nach dem Ausführen kontrollieren:
 reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.html\UserChoice" /v ProgId
 reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.html\UserChoice" /v Hash
 ```
+
+## GPO: Skript läuft beim Anmelden nicht / greift nicht
+
+Wenn das Skript manuell funktioniert, per Gruppenrichtlinie aber nicht, in dieser Reihenfolge prüfen:
+
+1. **Richtiger Kontext:** Das Skript muss unter **Benutzerkonfiguration → Richtlinien → Windows-Einstellungen → Skripts (Anmeldung)** eingetragen werden — **nicht** unter Computerkonfiguration → Startskripts (die laufen als SYSTEM, der Hash gilt dann für die SYSTEM-SID und greift für den Benutzer nicht; das Skript loggt in dem Fall eine WARNUNG).
+2. **Execution Policy:** Am zuverlässigsten in der Registerkarte **„Skripts (Anmeldung)“** (nicht „PowerShell-Skripte“) folgendes eintragen:
+   - Skriptname: `powershell.exe`
+   - Skriptparameter:
+     ```
+     -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "\\schule.local\SYSVOL\schule.local\scripts\Set-UserFTA.ps1" -ConfigFile "\\schule.local\SYSVOL\schule.local\scripts\associations.conf"
+     ```
+   Alternativ bei Nutzung der Registerkarte „PowerShell-Skripte“ die Richtlinie **„Skriptausführung aktivieren“** (Computerkonfiguration → Administrative Vorlagen → Windows-Komponenten → Windows PowerShell) auf „Lokale Skripte zulassen“/„Bypass“ setzen. Sonst blockiert die Default-Policy `Restricted` das Skript lautlos.
+3. **GPO wird überhaupt angewendet?** Auf dem Client prüfen: `gpresult /h C:\temp\gpo.html` (Abschnitt „Benutzerkonfiguration → Skripts“) bzw. `gpupdate /force` nach Änderungen. Skript und `associations.conf` müssen für „Authentifizierte Benutzer“ lesbar sein (SYSVOL-Rechte prüfen).
+4. **Timing:** Richtlinie **„Anmeldeskripts synchron ausführen“** (Computerkonfiguration → Administrative Vorlagen → System → Anmeldeskripts) aktivieren, damit das Skript fertig ist, bevor die Shell die Zuordnungen auswertet. Zum Debuggen vorübergehend „Anmeldeskripts sichtbar ausführen“ aktivieren.
+5. **Nachweis im Log:** Nach Ab-/Anmelden `%TEMP%\Set-UserFTA.log` des Benutzers prüfen — dort stehen jetzt Startzeile (`Set-UserFTA Start: ... User ...`), der `UserChoiceLatest-Plan` mit Kanarienstatus und pro Endung `Gesetzt: ... (UserChoice ..., UserChoiceLatest ...)`. Fehlt der Eintrag zum Anmeldezeitpunkt, ist das Skript gar nicht gelaufen (→ Punkte 1–3). Steht `FEHLER`, siehe Meldung (z. B. UCPD-Verweigerung bei http/https/.pdf).
+6. **Effective Execution Policy** auf dem Client kontrollieren: `Get-ExecutionPolicy -List`

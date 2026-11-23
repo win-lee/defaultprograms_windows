@@ -1404,6 +1404,7 @@ if ($SelfTest) {
     if ($legacyOk) { exit 0 } else { exit 1 }
 }
 
+Write-Log "Set-UserFTA Start: PS $($PSVersionTable.PSVersion), Computer $env:COMPUTERNAME, User $env:USERNAME, Config $ConfigFile"
 $entries = Read-AssociationConfig -Path $ConfigFile
 if ($null -ne $Association) {
     foreach ($key in @($Association.Keys)) { $entries[$key] = $Association[$key] }
@@ -1421,6 +1422,11 @@ if ($entries.Count -eq 0) {
 
 if ($env:USERNAME -eq 'SYSTEM' -or $env:USERNAME -like '*$') {
     Write-Log "WARNUNG: Skript laeuft offenbar als '$env:USERNAME' - HKCU-Hash gilt nur fuer den jeweiligen Benutzer. Im Benutzerkontext ausfuehren!"
+}
+
+if ($entries.Count -gt 0 -and -not $Remove) {
+    $plan = Get-CachedUclPlan
+    Write-Log "UserChoiceLatest-Plan: $($plan.Action) ($($plan.Reason)); Kanarie: $script:UclCanary"
 }
 
 $ok = 0

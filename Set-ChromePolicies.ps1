@@ -15,9 +15,17 @@
       DefaultSearchProviderEnabled = 1   Standardsuchmaschine per Richtlinie festlegen (Google)
       DefaultSearchProviderName / Keyword / SearchURL / SuggestURL = Google
 
-    Wirkt maschinenweit (HKLM) und braucht Administratorrechte. Ausfuehren z. B. als
-    Computer-Startskript per GPO, ueber GPO-Registrierungseinstellungen oder mit den
-    chrome.admx-Templates im zentralen Speicher. Mit -Remove werden die Werte wieder entfernt.
+    Standard: maschinenweit (HKLM) -> braucht Administratorrechte, z. B. als
+    Computer-Startskript per GPO (laeuft als SYSTEM beim Boot, keine Admin-Anmeldung noetig),
+    ueber GPO-Registrierungseinstellungen oder mit den chrome.admx-Templates im zentralen Speicher.
+
+    Mit -Scope User schreibt das Skript stattdessen nach HKCU\Software\Policies\Google\Chrome
+    (Chrome liest Richtlinien aus HKLM UND HKCU; bei Konflikten gewinnt HKLM). Dann braucht es
+    KEINE Admin-Rechte und kann als normales Benutzer-Anmeldeskript laufen - z. B. als zweite
+    Zeile derselben GPO wie Set-UserFTA.ps1:
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...\Set-ChromePolicies.ps1 -Scope User
+
+    Mit -Remove werden die Werte wieder entfernt.
 
     Hinweis: Set-UserFTA.ps1 setzt Chrome bereits pro Benutzer als Standardbrowser
     (UserChoice). Diese Richtlinien stellen sicher, dass Chrome auch dann nicht nachfragt,
@@ -29,6 +37,8 @@
 #>
 [CmdletBinding()]
 param(
+    [ValidateSet('Machine', 'User')]
+    [string]$Scope = 'Machine',
     [switch]$Remove,
     [string]$LogFile = (Join-Path -Path $(if ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }) -ChildPath 'Set-ChromePolicies.log')
 )
@@ -50,12 +60,13 @@ try {
     $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 catch { }
-if (-not $admin -and -not $Remove) {
-    Write-Log 'FEHLER: HKLM-Richtlinien brauchen Administratorrechte. Bitte als Admin ausfuehren (z. B. Computer-Startskript per GPO).'
+if ($Scope -eq 'Machine' -and -not $admin -and -not $Remove) {
+    Write-Log 'FEHLER: HKLM-Richtlinien brauchen Administratorrechte. Bitte als Admin ausfuehren (z. B. Computer-Startskript per GPO) oder -Scope User verwenden.'
     exit 1
 }
 
-$keyPath = 'HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome'
+$keyPath = if ($Scope -eq 'User') { 'HKEY_CURRENT_USER\Software\Policies\Google\Chrome' } else { 'HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome' }
+Write-Log "Set-ChromePolicies Start: Scope=$Scope, Ziel=$keyPath, User=$env:USERNAME, Admin=$admin"
 
 $policies = @(
     [pscustomobject]@{ Name = 'DefaultBrowserSettingEnabled';       Type = 'DWord';  Value = 0 },
@@ -92,7 +103,7 @@ foreach ($p in $policies) {
 }
 
 if (-not $Remove -and $ok -gt 0) {
-    Write-Log 'Fertig. Die Richtlinien greifen beim naechsten Chrome-Start (chrome://policy zeigt sie als "enforced").'
+    Write-Log "Fertig ($Scope). Die Richtlinien greifen beim naechsten Chrome-Start (chrome://policy zeigt sie als \"enforced\")."
 }
 Write-Log "Ergebnis: $ok ok, $fail Fehler."
 if ($fail -gt 0) { exit 1 } else { exit 0 }

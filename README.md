@@ -149,3 +149,19 @@ Kontrolle im Browser: `chrome://policy` — die Werte erscheinen als „enforced
 **Hinweis zum Zusammenspiel:** Auf Clients, auf denen `UCPD.sys` die UserChoice-Schreibzugriffe für `http`/`https` blockiert, kann `Set-UserFTA.ps1` den Browser nicht setzen — dank `DefaultBrowserSettingEnabled=0` fragt Chrome dann trotzdem nicht nach.
 
 **Bei Neuinstallationen** von Chrome (MSI) zusätzlich `master_preferences` im Installer verwenden — dann sind die Werte schon beim ersten Start gesetzt.
+
+### Variante: als Benutzer-Anmeldeskript (ohne Admin-Rechte)
+
+Chrome liest Richtlinien aus **HKLM UND HKCU** (`HKCU\Software\Policies\Google\Chrome`; bei gleichen Werten gewinnt HKLM). Mit
+
+```
+.\Set-ChromePolicies.ps1 -Scope User
+```
+
+schreibt das Skript die Richtlinien in den **eigenen Benutzer-Hive** — dann braucht es keine Admin-Rechte und kann als normales **Benutzer-Anmeldeskript** laufen, z. B. als zweite Zeile in derselben GPO wie `Set-UserFTA.ps1`:
+
+- Benutzerkonfiguration → Richtlinien → Windows-Einstellungen → Skripts (Anmeldung):
+  1. `powershell.exe` mit `-NoProfile -ExecutionPolicy Bypass -File "\\schule.local\SYSVOL\...\Set-UserFTA.ps1" -ConfigFile "\\schule.local\SYSVOL\...\associations.conf"`
+  2. `powershell.exe` mit `-NoProfile -ExecutionPolicy Bypass -File "\\schule.local\SYSVOL\...\Set-ChromePolicies.ps1" -Scope User`
+
+So landet alles beim Schüler-Anmelden ohne jegliche Admin-Anmeldung. (Computer-Startskript/Maschinenweit geht weiterhin wie oben beschrieben.)

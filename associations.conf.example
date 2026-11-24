@@ -34,3 +34,10 @@
 # .mp3 = Applications\vlc.exe
 # .jpg = PhotosApp
 # .png = PhotosApp
+
+# --- Editor: Visual Studio Code ---
+# ProgID fuer VS Code: Applications\Code.exe (bei per-user-Install unter HKCU\Software\Classes registriert).
+# Kontrolle am Test-PC: einmal manuell "Immer mit VS Code oeffnen", dann auslesen:
+#   powershell -File "\\hbla\netlogon\default\Set-UserFTA.ps1" -Get -GetName .txt
+# .txt = Applications\Code.exe
+# .php = Applications\Code.exe

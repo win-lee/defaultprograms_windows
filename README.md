@@ -118,3 +118,31 @@ Wenn das Skript manuell funktioniert, per Gruppenrichtlinie aber nicht, in diese
 4. **Timing:** Richtlinie **„Anmeldeskripts synchron ausführen“** (Computerkonfiguration → Administrative Vorlagen → System → Anmeldeskripts) aktivieren, damit das Skript fertig ist, bevor die Shell die Zuordnungen auswertet. Zum Debuggen vorübergehend „Anmeldeskripts sichtbar ausführen“ aktivieren.
 5. **Nachweis im Log:** Nach Ab-/Anmelden `%TEMP%\Set-UserFTA.log` des Benutzers prüfen — dort stehen jetzt Startzeile (`Set-UserFTA Start: ... User ...`), der `UserChoiceLatest-Plan` mit Kanarienstatus und pro Endung `Gesetzt: ... (UserChoice ..., UserChoiceLatest ...)`. Fehlt der Eintrag zum Anmeldezeitpunkt, ist das Skript gar nicht gelaufen (→ Punkte 1–3). Steht `FEHLER`, siehe Meldung (z. B. UCPD-Verweigerung bei http/https/.pdf).
 6. **Effective Execution Policy** auf dem Client kontrollieren: `Get-ExecutionPolicy -List`
+
+## Chrome ohne First-Run-/Standardbrowser-/Suchmaschinen-Abfrage starten
+
+`Set-UserFTA.ps1` setzt Chrome bereits pro Benutzer als Standardbrowser (UserChoice). Damit Chrome beim ersten Start **nicht** nachfragt („Als Standardbrowser festlegen?“ / „Standardsuchmaschine wählen?“) und direkt eingabebereit öffnet, gibt es das Begleit-Skript **`Set-ChromePolicies.ps1`**. Es schreibt die Chrome-Enterprise-Richtlinien maschinenweit nach `HKLM\SOFTWARE\Policies\Google\Chrome`:
+
+| Wert | Typ | Bedeutung |
+|---|---|---|
+| `DefaultBrowserSettingEnabled` = 0 | DWORD | Chrome prüft nie, ob es Standard ist, und fragt nicht nach |
+| `HideFirstRunExperience` = 1 | DWORD | First-Run-/Welcome-Seite wird unterdrückt |
+| `MetricsReportingEnabled` = 0 | DWORD | keine „Statistiken senden“-Abfrage |
+| `BrowserAddPersonEnabled` = 0 | DWORD | kein „Weitere Person hinzufügen“ |
+| `RestoreOnStartup` = 5 | DWORD | beim Start neuer Tab (keine Wiederherstellungs-Meldung) |
+| `DefaultSearchProviderEnabled` = 1 + `DefaultSearchProviderName`/`Keyword`/`SearchURL`/`SuggestURL` (Google) | DWORD/String | Standardsuchmaschine ist per Richtlinie festgelegt — dadurch entfällt im EEA der Suchmaschinen-Auswahl-Screen; Chrome zeigt „Von Ihrem Administrator verwaltet“ |
+
+**Deployment (HKLM → braucht Admin):** am einfachsten als **Computer-Startskript** in einer GPO:
+
+- Computerkonfiguration → Richtlinien → Windows-Einstellungen → Skripts (Starten) → Skriptname `powershell.exe`, Parameter:
+  ```
+  -NoProfile -ExecutionPolicy Bypass -File "\\schule.local\SYSVOL\schule.local\scripts\Set-ChromePolicies.ps1"
+  ```
+
+Alternativ über **GPO → Bevorzugte Einstellungen → Windows-Einstellungen → Registrierung** (gleiche Werte) oder über die offiziellen `chrome.admx`-Vorlagen im zentralen ADMX-Speicher (z. B. „Default browser“ deaktivieren, „Default search provider“ konfigurieren). Entfernen mit `Set-ChromePolicies.ps1 -Remove`.
+
+Kontrolle im Browser: `chrome://policy` — die Werte erscheinen als „enforced“. Sie greifen ab dem nächsten Chrome-Start.
+
+**Hinweis zum Zusammenspiel:** Auf Clients, auf denen `UCPD.sys` die UserChoice-Schreibzugriffe für `http`/`https` blockiert, kann `Set-UserFTA.ps1` den Browser nicht setzen — dank `DefaultBrowserSettingEnabled=0` fragt Chrome dann trotzdem nicht nach.
+
+**Bei Neuinstallationen** von Chrome (MSI) zusätzlich `master_preferences` im Installer verwenden — dann sind die Werte schon beim ersten Start gesetzt.

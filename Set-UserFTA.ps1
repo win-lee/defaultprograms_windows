@@ -1376,6 +1376,16 @@ function Set-OneAssociation {
         if ($uclHash) { Write-Log "Hinweis: legacy UserChoice fuer '$Name' fehlgeschlagen, UserChoiceLatest wurde aber geschrieben: $($_.Exception.Message)" }
         else { throw }
     }
+    $owp = "$root\$Name\OpenWithProgids"
+    try {
+        $k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($owp, $true)
+        if (-not $k) { $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($owp) }
+        $has = $false
+        foreach ($vn in $k.GetValueNames()) { if ($vn -eq $ProgId) { $has = $true; break } }
+        if (-not $has) { $k.SetValue($ProgId, [byte[]]@(), [Microsoft.Win32.RegistryValueKind]::None) }
+        $k.Close()
+    }
+    catch { Write-Log "Hinweis: OpenWithProgids fuer '$Name' nicht ergaenzbar: $($_.Exception.Message)" }
     Write-ApplicationAssociationToasts -ProgId $ProgId -Extension $Name
     return [pscustomobject]@{ LegacyHash = $legacyHash; LatestHash = $uclHash }
 }

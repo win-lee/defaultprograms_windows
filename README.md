@@ -9,6 +9,9 @@ Ein SetUserFTA-ähnliches Werkzeug als reines PowerShell-Skript: Es setzt **pro 
 | `Set-UserFTA.ps1` | Das Skript (Windows PowerShell 5.1 und PowerShell 7+, UTF-8 mit BOM) |
 | `associations.conf.example` | Beispiel-Konfiguration → zu `associations.conf` umbenennen |
 | `README.md` | Diese Anleitung |
+| `Set-ChromePolicies.ps1` | Chrome-Richtlinien gegen First-Run-Abfragen (maschinenweit, siehe unten) |
+
+**Zwei Kontexte, zwei Skripte:** `Set-UserFTA.ps1` läuft als **Benutzer-Anmeldeskript** (normaler User, keine Admin-Rechte nötig — schreibt HKCU). `Set-ChromePolicies.ps1` schreibt **HKLM** und braucht deshalb Admin-Rechte — es läuft als **Computer-Startskript** automatisch als SYSTEM beim Boot, ohne Anmeldung.
 
 ## Schnellstart: Login-Skript per GPO
 
@@ -132,14 +135,14 @@ Wenn das Skript manuell funktioniert, per Gruppenrichtlinie aber nicht, in diese
 | `RestoreOnStartup` = 5 | DWORD | beim Start neuer Tab (keine Wiederherstellungs-Meldung) |
 | `DefaultSearchProviderEnabled` = 1 + `DefaultSearchProviderName`/`Keyword`/`SearchURL`/`SuggestURL` (Google) | DWORD/String | Standardsuchmaschine ist per Richtlinie festgelegt — dadurch entfällt im EEA der Suchmaschinen-Auswahl-Screen; Chrome zeigt „Von Ihrem Administrator verwaltet“ |
 
-**Deployment (HKLM → braucht Admin):** am einfachsten als **Computer-Startskript** in einer GPO:
+**Deployment (HKLM → braucht Admin-Rechte — aber NICHT als Admin-Anmeldung!):** Computer-Startskripts laufen als **SYSTEM (LocalSystem)** beim Boot des PCs, bevor sich irgendjemand anmeldet — es muss sich niemand mit Admin-Rechten anmelden. Am einfachsten als **Computer-Startskript** in einer GPO (an die Computer-OU binden):
 
 - Computerkonfiguration → Richtlinien → Windows-Einstellungen → Skripts (Starten) → Skriptname `powershell.exe`, Parameter:
   ```
   -NoProfile -ExecutionPolicy Bypass -File "\\schule.local\SYSVOL\schule.local\scripts\Set-ChromePolicies.ps1"
   ```
 
-Alternativ über **GPO → Bevorzugte Einstellungen → Windows-Einstellungen → Registrierung** (gleiche Werte) oder über die offiziellen `chrome.admx`-Vorlagen im zentralen ADMX-Speicher (z. B. „Default browser“ deaktivieren, „Default search provider“ konfigurieren). Entfernen mit `Set-ChromePolicies.ps1 -Remove`.
+Ohne Skript geht es auch: **GPO → Bevorzugte Einstellungen → Windows-Einstellungen → Registrierung** (die Werte direkt eintragen — wird als SYSTEM bei jedem GPO-Refresh angewendet, nicht nur beim Boot) oder über die offiziellen `chrome.admx`-Vorlagen im zentralen ADMX-Speicher (z. B. „Default browser check“ deaktivieren, „Default search provider“ auf Google setzen). Entfernen mit `Set-ChromePolicies.ps1 -Remove`.
 
 Kontrolle im Browser: `chrome://policy` — die Werte erscheinen als „enforced“. Sie greifen ab dem nächsten Chrome-Start.
 
